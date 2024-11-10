@@ -1,29 +1,40 @@
-# Use Python 3.8 as base image
-FROM python:3.11.5
+# Use Python 3.11 as base image
+FROM python:3.11
 
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-        postgresql-client
+    postgresql-client \
+    build-essential \
+    curl \
+    pkg-config \
+    libssl-dev
 
-# Copy Python requirements and install Python dependencies
+# Install Rust (required for maturin)
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
-COPY . .
-
-COPY start.sh /start.sh
-
-RUN chmod +x /start.sh
-
+# Copy Python requirements first
 COPY requirements.txt .
+
+# Install maturin first
+RUN pip install --no-cache-dir maturin
+
+# Install underthesea explicitly with version
+RUN pip install --no-cache-dir underthesea==6.8.4
+
+# Install other dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the rest of the application
+COPY . .
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
-# Download NLTK data
-RUN python -m nltk.downloader vader_lexicon punkt
-
-
-# Expose ports for FastAPI and React
+# Expose ports for FastAPI
 EXPOSE 8000
 
+# Set environment variables for underthesea
+ENV PYTHONPATH="${PYTHONPATH}:/app"
